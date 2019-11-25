@@ -1,2 +1,10 @@
+# Project
 data/
+env/
+
+# Python
 *.pyc
+
+
+# Editor
+.vscode/
