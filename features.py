@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 path_to_vsm = "word_linear_glove_500d"
 vsm = vsmlib.model.load_from_dir(path_to_vsm)
 
-def readData(filename):
+def readData(filename, rnn_filename):
     data = []
     input = []
     output = []
@@ -77,8 +77,25 @@ def readData(filename):
             if(filename != "test.csv"):
                 output.append(line[7])
 
-    print(i[5])
-    print(d[5])
+    # add RNN features
+    with open(rnn_filename, 'r', encoding="utf-8") as f:
+        csvdata = csv.reader(f, delimiter=',', quotechar='"')
+        count = 0
+        index = 0
+        for line in csvdata:
+            if count%2==0:
+                if rnn_filename == "predtest.csv":
+                    data[index].append(float(line[0]))
+                else:
+                    data[index].append(float(line[2]))
+            else:
+                if rnn_filename == "predtest.csv":
+                    data[index].append(float(line[0]))
+                else:
+                    data[index].append(float(line[2]))
+                index += 1
+            count += 1
+    
     return data, output, ids
 
 def getTrainingAndValData(data, output, size):
@@ -126,9 +143,9 @@ def preprocessData(data, label, isTrain):
     return d, l
 
 def main():
-    train_data, train_labels, train_ids = readData("train.csv")
-    dev_data, dev_labels, dev_ids = readData("dev.csv")
-    test_data, test_labels, test_ids = readData("test.csv")
+    train_data, train_labels, train_ids = readData("train.csv","GRUtrain17.csv")
+    dev_data, dev_labels, dev_ids = readData("dev.csv","GRUdev17.csv")
+    test_data, test_labels, test_ids = readData("test.csv","predtest.csv")
 
     clf = LogisticRegression(solver='lbfgs').fit(train_data, train_labels)
     pred_train = clf.predict(train_data)
@@ -141,8 +158,9 @@ def main():
 
     count  = 0
     pred = clf.predict(dev_data)
+
     pred_test = clf.predict(test_data)
-    with open("output.csv",'w') as f:
+    with open("output_rnn.csv",'w') as f:
         f.write("Id,Prediction\n")
         for i in range(len(pred_test)):
             f.write(test_ids[i])
