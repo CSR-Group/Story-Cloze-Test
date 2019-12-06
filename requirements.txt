@@ -2,3 +2,7 @@ sklearn
 numpy
 nltk
 spacy
+pytorch-pretrained-bert
+pytorch-nlp
+keras
+tensorflow

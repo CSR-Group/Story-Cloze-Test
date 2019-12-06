@@ -1,6 +1,7 @@
 from ingest import *
 import spacy
 from spacy.symbols import nsubj, VERB, NOUN, PROPN
+from nltk.corpus import wordnet as wn
 
 class EntityRelation:
     def __init__(self, noun, associatedVerbs):
