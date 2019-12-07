@@ -22,14 +22,14 @@ class RNN(nn.Module):
     def __init__(self):
         super(RNN, self).__init__()
         self.input_dim = 500
-        self.hidden_dim = 64
+        self.hidden_dim = 128
         self.output_dim = 1
         self.num_rnn_layers = 2
         self.nonlinearity = 'tanh'
         self.sigmoid = nn.Sigmoid()
         self.log_softmax = nn.LogSoftmax()
         self.loss = nn.NLLLoss()
-        self.lstm = nn.GRU(input_size = self.input_dim, hidden_size = self.hidden_dim, num_layers = self.num_rnn_layers, batch_first=True)
+        self.lstm = nn.GRU(input_size = self.input_dim, hidden_size = self.hidden_dim, num_layers = self.num_rnn_layers, batch_first=True, bidirectional=True)
         self.rnn = nn.RNN(input_size = self.input_dim, hidden_size = self.hidden_dim, num_layers = self.num_rnn_layers, batch_first=True, nonlinearity=self.nonlinearity)
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
@@ -37,10 +37,11 @@ class RNN(nn.Module):
         return self.loss(predicted_vector, gold_label)
     
     def forward(self, inputs):
-        h0 = Variable(torch.zeros(self.num_rnn_layers, inputs.size(0), self.hidden_dim))
+        h0 = Variable(torch.zeros(self.num_rnn_layers*2, inputs.size(0), self.hidden_dim))
         #out, hn = self.rnn(inputs, h0)
         out, hn = self.lstm(inputs, h0)
-        z1 = self.fc(out[:, -1, :])
+        # z1 = self.fc(out[:, -1, :])
+        z1 = self.fc((out[:, -1, :self.hidden_dim] + out[:,0,self.hidden_dim:])/2)
         return self.sigmoid(z1)
  
 def performTrain(model, optimizer, train_data, train_ids):
@@ -143,40 +144,16 @@ def test(model, test_data):
         pred_label.append(predicted_label)
     return pred_prob, pred_label
 
-def main(num_epoch = 15):
-    count = 15
+def main(num_epoch = 20):
+    count = 0
     train_ids, train_data = readData("train.csv")
     dev_ids, dev_data = readData("dev.csv")
     model = RNN()
-    optimizer = optim.Adagrad(model.parameters(),lr=0.001)
+    optimizer = optim.Adagrad(model.parameters(),lr=0.0001)
     model = model.float()
     criterion = nn.BCELoss()
 
-    model.load_state_dict(torch.load("GRUmodel15.pth"))
-
-    if os.path.exists("rnnmodel.pth"):
-        model.load_state_dict(torch.load("rnnmodel.pth"))
-        print("Successful")
-        res = []
-        N = len(val_data)
-        for i in range(N):
-            input_vector, gold_label = val_data[i]
-            predicted_vector = model(input_vector.float())
-            predicted_label = torch.argmax(predicted_vector)
-            if predicted_label != gold_label:
-                temp = []
-                temp.append(i)
-                temp.append(predicted_label)
-                temp.append(gold_label)
-                print(i)
-                print(predicted_label)
-                print(gold_label)
-                res.append(temp)
-        with open('rnn_64_2.csv', 'w') as csvFile:
-            writer = csv.writer(csvFile)
-            writer.writerows(res)
-        csvFile.close()
-        return
+    model.load_state_dict(torch.load("RNNmodel40.pth"))
 
     train_accuracy_history = []
     train_loss_history = []
@@ -188,15 +165,6 @@ def main(num_epoch = 15):
     val_precision_history = []
 
     for epoch in range(num_epoch):
-
-        # if os.path.exists("rnnmodel.pth"):
-        #     state_dict = torch.load("model.pth")['state_dict']
-        #     model.load_state_dict(state_dict)
-        #     print("Successful")
-
-        # if len(train_loss_history)>1 and (train_loss_history[-1] < val_loss_history[-1]) and (train_loss_history[-1] < train_loss_history[-2]) and (val_loss_history[-1] > val_loss_history[-2]):
-        #     break
-        
         count += 1
         model.train()
         optimizer.zero_grad()
@@ -217,8 +185,8 @@ def main(num_epoch = 15):
         val_precision_history.append(val_precision)
 
         #saving model aftr every epoch
-        path = "GRUmodel"
-        torch.save(model.state_dict(),path + str(count) + ".pth")
+        path = "RNNmodel"
+        torch.save(model.state_dict(),path + str(count+40) + ".pth")
 
         #save the predicted rnn prob feature
         train_rnn_pred = []
@@ -232,7 +200,7 @@ def main(num_epoch = 15):
         for i in range(len(dev_ids)):
             dev_rnn_pred.append(val_predicted_prob[i])
 
-        file_path = "GRUtrain" + str(count) +".csv"
+        file_path = "RNNtrain" + str(count+40) +".csv"
         with open(file_path, "w") as f:
             for i in range(len(train_rnn_pred)):
                 f.write(train_ids[i])
@@ -240,7 +208,7 @@ def main(num_epoch = 15):
                 f.write(',%s' % label)
                 f.write(',%s\n' % train_rnn_pred[i])
 
-        file_path = "GRUdev" + str(count) +".csv"
+        file_path = "RNNdev" + str(count+40) +".csv"
         with open(file_path, "w") as f:
             for i in range(len(dev_rnn_pred)):
                 f.write(dev_ids[i])
@@ -333,7 +301,6 @@ def main(num_epoch = 15):
 
 def predict_test(pathname):
     model = RNN()
-    optimizer = optim.Adagrad(model.parameters(),lr=0.01)
     model = model.float()
     if os.path.exists(pathname):
         model.load_state_dict(torch.load(pathname))
@@ -347,5 +314,5 @@ def predict_test(pathname):
         for i in range(len(pred_prob)):
             f.write('%s\n' % pred_prob[i])
 
-#main()
-predict_test("GRUmodel17.pth")
+main()
+#predict_test("model3_4.pth")
