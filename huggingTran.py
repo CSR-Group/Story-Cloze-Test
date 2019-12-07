@@ -62,25 +62,25 @@ def transform(data, returnAsPair=False):
     return transformedData
     
 def main():
-    data = ingest.getTrainData(tokenize=False, lower=False)
-    validData = ingest.getValidationData(tokenize=False, lower=False)
+    data = ingest.getTrainData(tokenize=False, lower=False)[:20]
+    validData = ingest.getValidationData(tokenize=False, lower=False)[:20]
     transformedDataSet = transform(data)
     transformedValidationDataSet = transform(validData)
     
-    optimizer = BertAdam(model.parameters(),lr=2e-5,warmup=.1)
+    optimizer = BertAdam(model.parameters(),lr=2e-6,warmup=.1)
 
-    epochs = 2
+    epochs = 100
 
     for epoch in range(epochs):
         model.train()
-        tr_loss = 0
         optimizer.zero_grad()
 
         print("Training started for epoch {}".format(epoch + 1))
 
         correct = 0
         total = 0
-
+        tr_loss = 0
+        
         for dataPoint in tqdm(transformedDataSet):
             story = dataPoint["story"]
             segmentMask = dataPoint["segmentMask"]
@@ -98,30 +98,32 @@ def main():
             # Backward pass
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             loss = loss_fct(seq_relationship_score.view(-1, 2), label.view(-1))
+            tr_loss += loss.item()
             loss.backward()
             optimizer.step()
 
         print("Training accuracy for epoch {}: {}".format(epoch + 1, correct / total))
+        print("Training loss for epoch {}: {}".format(epoch + 1, tr_loss / total))
 
         correct = 0
         total = 0
 
-        for dataPoint in tqdm(transformedValidationDataSet):
-            story = dataPoint["story"]
-            segmentMask = dataPoint["segmentMask"]
-            label = torch.LongTensor([0 if dataPoint["label"] else 1])
-            # Forward pass
-            seq_relationship_score = model(story, token_type_ids=segmentMask)
-            if(dataPoint["label"] and (seq_relationship_score[0][0] > seq_relationship_score[0][1])):
-                correct += 1
-            elif(not dataPoint["label"] and (seq_relationship_score[0][0] < seq_relationship_score[0][1])):
-                correct += 1
-            total += 1
+        # for dataPoint in tqdm(transformedValidationDataSet):
+        #     story = dataPoint["story"]
+        #     segmentMask = dataPoint["segmentMask"]
+        #     label = torch.LongTensor([0 if dataPoint["label"] else 1])
+        #     # Forward pass
+        #     seq_relationship_score = model(story, token_type_ids=segmentMask)
+        #     if(dataPoint["label"] and (seq_relationship_score[0][0] > seq_relationship_score[0][1])):
+        #         correct += 1
+        #     elif(not dataPoint["label"] and (seq_relationship_score[0][0] < seq_relationship_score[0][1])):
+        #         correct += 1
+        #     total += 1
 
-        print("Validation accuracy for epoch {}: {}".format(epoch + 1, correct / total))
+        # print("Validation accuracy for epoch {}: {}".format(epoch + 1, correct / total))
 
-    path = "trainedModel_101"
-    torch.save(model.state_dict(),path + str(count) + ".pth")
+    # path = "trainedModel_101"
+    # torch.save(model.state_dict(),path + str(epoch + 1) + ".pth")
 
             
 if __name__ == "__main__":
